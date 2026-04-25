@@ -1,376 +1,442 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
 
-// --- Types ---
-interface FormState {
-  username: string;
-  password: string;
-  isLoading: boolean;
-  error: string | null;
-  success: boolean;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface ServiceItem {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
 }
 
-type SocialIcon = "facebook" | "instagram" | "pinterest";
-
-// --- Geometric Shape Component ---
-const GeometricShape = ({
-  className,
-  delay = 0,
-}: {
-  className: string;
-  delay?: number;
-}) => (
-  <motion.div
-    className={className}
-    initial={{ opacity: 0, scale: 0.6, rotate: -15 }}
-    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-    transition={{ duration: 1.2, delay, ease: [0.16, 1, 0.3, 1] }}
-  />
-);
-
-// --- Social Icon SVG ---
-
-
-// --- Logo ---
-const Logo = () => (
-  <motion.div
-    className="flex gap-1 items-end"
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-  >
-    <div className="w-4 h-5 bg-white rounded-sm" />
-    <div className="w-4 h-3.5 bg-white rounded-sm" />
-  </motion.div>
-);
-
-// --- Input Field ---
-const InputField = ({
-  label,
-  type,
-  value,
-  placeholder,
-  onChange,
-  delay,
-}: {
+interface NavLink {
   label: string;
-  type: string;
-  value: string;
-  placeholder: string;
-  onChange: (v: string) => void;
-  delay: number;
-}) => {
-  const [focused, setFocused] = useState(false);
+  href: string;
+}
 
-  return (
-    <motion.div
-      className="flex flex-col gap-1.5"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <label
-        className="text-sm font-bold text-white"
-        style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif" }}
-      >
-        {label}
-      </label>
-      <div className="relative">
-        <input
-          type={type}
-          value={value}
-          placeholder={placeholder}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className="w-full px-4 py-2.5 rounded-full text-sm text-white placeholder-white/40 outline-none transition-all duration-300"
-          style={{
-            fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
-            background: "rgba(255,255,255,0.08)",
-            border: focused
-              ? "1.5px solid rgba(255,100,80,0.8)"
-              : "1.5px solid rgba(255,255,255,0.08)",
-            boxShadow: focused ? "0 0 0 3px rgba(255,100,80,0.15)" : "none",
-          }}
-        />
-      </div>
-    </motion.div>
-  );
+// ─── Data ────────────────────────────────────────────────────────────────────
+
+const NAV_LINKS: NavLink[] = [
+  { label: "LinkedIn", href: "#" },
+  { label: "Dribbble", href: "#" },
+  { label: "Instagram", href: "#" },
+];
+
+const BRANDS: string[] = [
+  "National Bank",
+  "mattered",
+  "Coca‑Cola",
+  "Adobe",
+  "SUBWAY",
+  "Codecademy",
+];
+
+const SERVICES: ServiceItem[] = [
+  {
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="3" y="3" width="22" height="16" rx="2" />
+        <path d="M9 23h10M14 19v4" />
+      </svg>
+    ),
+    title: "UX & UI",
+    description: "Designing interfaces that are intuitive, efficient, and enjoyable to use.",
+  },
+  {
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <rect x="3" y="5" width="14" height="20" rx="2" />
+        <rect x="14" y="3" width="11" height="14" rx="2" />
+      </svg>
+    ),
+    title: "Web & Mobile App",
+    description: "Transforming ideas into exceptional web and mobile app experiences.",
+  },
+  {
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <circle cx="14" cy="14" r="4" />
+        <path d="M14 3v4M14 21v4M3 14h4M21 14h4M6.22 6.22l2.83 2.83M18.95 18.95l2.83 2.83M6.22 21.78l2.83-2.83M18.95 9.05l2.83-2.83" />
+      </svg>
+    ),
+    title: "Design & Creative",
+    description: "Crafting visually stunning designs that connect with your audience.",
+  },
+  {
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <polyline points="7,8 3,14 7,20" />
+        <polyline points="21,8 25,14 21,20" />
+        <line x1="11" y1="5" x2="17" y2="23" />
+      </svg>
+    ),
+    title: "Development",
+    description: "Bringing your vision to life with the latest technology and design trends.",
+  },
+];
+
+// ─── Animation Variants ───────────────────────────────────────────────────────
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 32 },
+  show: (i: number = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] as const, delay: i * 0.09 },
+  }),
 };
 
-// --- Main Login Page ---
-export default function LoginPage() {
-  const [form, setForm] = useState<FormState>({
-    username: "TechTree",
-    password: "••••••••••",
-    isLoading: false,
-    error: null,
-    success: false,
-  });
+const fadeIn = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { duration: 0.7 } },
+};
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const rotateX = useTransform(mouseY, [-300, 300], [4, -4]);
-  const rotateY = useTransform(mouseX, [-400, 400], [-4, 4]);
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    mouseX.set(e.clientX - rect.left - rect.width / 2);
-    mouseY.set(e.clientY - rect.top - rect.height / 2);
-  };
+function Navbar() {
+  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = async () => {
-    setForm((f) => ({ ...f, isLoading: true, error: null }));
-    await new Promise((r) => setTimeout(r, 1400));
-    if (!form.username || form.password.length < 3) {
-      setForm((f) => ({ ...f, isLoading: false, error: "Invalid credentials." }));
-    } else {
-      setForm((f) => ({ ...f, isLoading: false, success: true }));
-    }
+  const handleCopy = () => {
+    navigator.clipboard.writeText("kawsarvu.design@gmail.com");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   };
 
   return (
-    <div
-      className="min-h-screen w-full flex items-center justify-center overflow-hidden relative"
-      style={{
-        background: "linear-gradient(135deg, #3d0066 0%, #5c0080 40%, #2a004d 100%)",
-        fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
-      }}
-      onMouseMove={handleMouseMove}
-      ref={containerRef}
+    <motion.nav
+      initial={{ opacity: 0, y: -16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="flex items-center justify-between px-6 py-4"
     >
-      {/* Background geometric shapes */}
-      <GeometricShape
-        delay={0.1}
-        className="absolute top-[8%] left-[30%] w-28 h-28 rounded-[30%] border-2 border-purple-400/20 rotate-12 pointer-events-none"
-      />
-      <GeometricShape
-        delay={0.2}
-        className="absolute bottom-[15%] left-[20%] w-40 h-40 rounded-[40%] border border-pink-400/15 -rotate-6 pointer-events-none"
-      />
-      <GeometricShape
-        delay={0.15}
-        className="absolute top-[20%] right-[8%] w-32 h-32 rounded-[35%] bg-blue-500/10 rotate-45 pointer-events-none"
-      />
-      <GeometricShape
-        delay={0.25}
-        className="absolute bottom-[10%] right-[15%] w-24 h-24 rounded-full bg-purple-400/10 pointer-events-none"
-      />
-      <GeometricShape
-        delay={0.05}
-        className="absolute top-[35%] left-[8%] w-20 h-20 rounded-[25%] border border-pink-500/20 rotate-[30deg] pointer-events-none"
-      />
-      <GeometricShape
-        delay={0.3}
-        className="absolute top-[60%] right-[30%] w-16 h-16 rounded-full border border-blue-400/20 pointer-events-none"
-      />
-
-      {/* Logo */}
-      <div className="absolute top-6 left-7">
-        <Logo />
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] text-neutral-400 tracking-wide font-mono">
+          kawsarvu.design@gmail.com
+        </span>
+        <button
+          onClick={handleCopy}
+          className="relative px-3 py-1 rounded-full border border-neutral-200 text-[11px] font-medium text-neutral-600 hover:border-neutral-400 hover:text-neutral-900 transition-all duration-200"
+        >
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={copied ? "copied" : "copy"}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18 }}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </motion.span>
+          </AnimatePresence>
+        </button>
+        <a
+          href="#"
+          className="px-3 py-1 rounded-full border border-neutral-200 text-[11px] font-medium text-neutral-600 hover:border-neutral-400 hover:text-neutral-900 transition-all duration-200"
+        >
+          CV
+        </a>
       </div>
 
-      {/* Main Card */}
-      <div className="relative w-full max-w-4xl mx-4 grid grid-cols-1 md:grid-cols-2 gap-0 min-h-[420px]">
-        {/* Left: Welcome */}
-        <motion.div
-          className="flex flex-col justify-center px-10 py-12"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.8 }}
+      <div className="flex items-center gap-1 text-[11px] text-neutral-400">
+        {NAV_LINKS.map((link, i) => (
+          <span key={link.label} className="flex items-center gap-1">
+            {i > 0 && <span className="text-neutral-200">/</span>}
+            <a
+              href={link.href}
+              className="hover:text-neutral-900 transition-colors duration-200"
+            >
+              {link.label}
+            </a>
+          </span>
+        ))}
+      </div>
+    </motion.nav>
+  );
+}
+
+function HeroSection() {
+  return (
+    <section className="relative flex flex-col items-center text-center px-8 pt-10 pb-16 bg-white rounded-3xl mx-4 shadow-sm overflow-hidden">
+      {/* Subtle grain overlay */}
+      <div
+        className="absolute inset-0 opacity-[0.025] pointer-events-none"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        }}
+      />
+
+      {/* Avatar + name badge */}
+      <motion.div
+        variants={fadeUp}
+        custom={0}
+        initial="hidden"
+        animate="show"
+        className="flex items-center gap-3 mb-8"
+      >
+        <div className="w-11 h-11 rounded-full bg-neutral-200 overflow-hidden ring-2 ring-white shadow-md">
+          <div className="w-full h-full bg-gradient-to-br from-neutral-300 to-neutral-500 flex items-center justify-center text-white text-xs font-bold">
+            KA
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 bg-neutral-50 border border-neutral-100 rounded-full px-3 py-1.5 shadow-sm">
+          <span className="text-[12px] font-medium text-neutral-800">Kawsar Ahmed</span>
+          <span className="text-[10px]">👋</span>
+        </div>
+      </motion.div>
+
+      {/* Headline */}
+      <motion.h1
+        variants={fadeUp}
+        custom={1}
+        initial="hidden"
+        animate="show"
+        className="text-[clamp(2rem,6vw,3.2rem)] font-bold leading-[1.1] tracking-tight text-neutral-900 max-w-[520px]"
+        style={{ fontFamily: "'Georgia', 'Times New Roman', serif" }}
+      >
+        Building digital products, brands, and experience.
+      </motion.h1>
+
+      {/* CTA */}
+      <motion.div
+        variants={fadeUp}
+        custom={2}
+        initial="hidden"
+        animate="show"
+        className="mt-9"
+      >
+        <motion.a
+          href="#"
+          whileHover={{ scale: 1.04, backgroundColor: "#1a1a1a" }}
+          whileTap={{ scale: 0.97 }}
+          className="inline-flex items-center gap-2 bg-neutral-900 text-white text-[12px] font-medium px-5 py-3 rounded-full shadow-lg transition-colors duration-200"
         >
-          <motion.h1
-            className="text-6xl font-black text-white leading-tight mb-4"
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-            style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif" }}
-          >
-            Welcome!
-          </motion.h1>
+          Latest Shots
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2 10L10 2M10 2H4M10 2v6" />
+          </svg>
+        </motion.a>
+      </motion.div>
+    </section>
+  );
+}
 
-          <motion.div
-            className="w-10 h-0.5 bg-white/60 mb-5"
-            initial={{ scaleX: 0, originX: 0 }}
-            animate={{ scaleX: 1 }}
-            transition={{ duration: 0.6, delay: 0.45 }}
-          />
+function BrandsSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-80px" });
 
-          <motion.p
-            className="text-white/55 text-sm leading-relaxed max-w-xs mb-8"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.5 }}
+  return (
+    <section ref={ref} className="bg-white rounded-3xl mx-4 px-8 py-8 shadow-sm">
+      <motion.div
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.08 } },
+        }}
+        className="flex flex-wrap items-center justify-center gap-x-10 gap-y-5"
+      >
+        {BRANDS.map((brand) => (
+          <motion.span
+            key={brand}
+            variants={fadeUp}
+            className="text-[13px] font-semibold text-neutral-400 hover:text-neutral-700 transition-colors duration-200 tracking-wide cursor-default select-none"
           >
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-          </motion.p>
+            {brand}
+          </motion.span>
+        ))}
+      </motion.div>
+    </section>
+  );
+}
 
-          <motion.button
-            className="self-start px-5 py-2 rounded-full text-white text-sm font-semibold cursor-pointer"
-            style={{
-              background: "linear-gradient(90deg, #ff6b4a 0%, #e63e3e 100%)",
-            }}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.65 }}
-            whileHover={{ scale: 1.05, boxShadow: "0 6px 20px rgba(230,62,62,0.4)" }}
-            whileTap={{ scale: 0.97 }}
-          >
-            Learn More
-          </motion.button>
+function ServicesSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+
+  return (
+    <section ref={ref} className="px-4 py-4">
+      <motion.div
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        variants={fadeIn}
+        className="text-center mb-10"
+      >
+        <h2
+          className="text-[clamp(1.5rem,4vw,2.2rem)] font-bold text-neutral-900 leading-snug tracking-tight"
+          style={{ fontFamily: "'Georgia', serif" }}
+        >
+          <span className="font-bold">Collaborate</span> with{" "}
+          <span className="italic font-normal">brands</span> and{" "}
+          <span className="text-neutral-400 font-normal">agencies</span>
+          <br />
+          to create <span className="italic font-normal">impactful</span> results.
+        </h2>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={inView ? { opacity: 1, scale: 1 } : {}}
+          transition={{ delay: 0.3, duration: 0.4 }}
+          className="mt-4 inline-flex items-center gap-1.5 bg-neutral-100 border border-neutral-200 rounded-full px-4 py-1.5"
+        >
+          <div className="w-1.5 h-1.5 rounded-full bg-neutral-900" />
+          <span className="text-[11px] font-medium text-neutral-600 tracking-widest uppercase">
+            Services
+          </span>
         </motion.div>
+      </motion.div>
 
-        {/* Right: Sign In Card */}
-        <motion.div
-          style={{
-            rotateX,
-            rotateY,
-            transformStyle: "preserve-3d",
-          }}
-        >
+      {/* Service cards */}
+      <motion.div
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        variants={{ hidden: {}, show: { transition: { staggerChildren: 0.1 } } }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      >
+        {SERVICES.map((svc, i) => (
           <motion.div
-            className="rounded-2xl px-10 py-10 flex flex-col gap-5 h-full"
-            style={{
-              background: "rgba(80, 20, 90, 0.72)",
-              backdropFilter: "blur(18px)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.35)",
-            }}
-            initial={{ opacity: 0, y: 40, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            key={svc.title}
+            variants={fadeUp}
+            custom={i}
+            whileHover={{ y: -4, boxShadow: "0 8px 32px rgba(0,0,0,0.08)" }}
+            className="bg-white rounded-2xl p-5 shadow-sm border border-neutral-100 transition-shadow duration-200 cursor-default"
           >
-            {/* Title */}
-            <motion.div
-              className="text-center"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.35 }}
-            >
-              <h2
-                className="text-2xl font-bold text-white mb-1"
-                style={{ fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif" }}
-              >
-                Sign in
-              </h2>
-              <div className="w-8 h-0.5 bg-pink-500/60 mx-auto rounded-full" />
-            </motion.div>
-
-            {/* Inputs */}
-            <InputField
-              label="User Name"
-              type="text"
-              value={form.username}
-              placeholder="Enter username"
-              onChange={(v) => setForm((f) => ({ ...f, username: v }))}
-              delay={0.4}
-            />
-            <InputField
-              label="Password"
-              type="password"
-              value={form.password}
-              placeholder="Enter password"
-              onChange={(v) => setForm((f) => ({ ...f, password: v }))}
-              delay={0.5}
-            />
-
-            {/* Error */}
-            <AnimatePresence>
-              {form.error && (
-                <motion.p
-                  className="text-red-400 text-xs text-center -mt-2"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  {form.error}
-                </motion.p>
-              )}
-              {form.success && (
-                <motion.p
-                  className="text-green-400 text-xs text-center -mt-2"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                >
-                  ✓ Signed in successfully!
-                </motion.p>
-              )}
-            </AnimatePresence>
-
-            {/* Submit */}
-            <motion.button
-              onClick={handleSubmit}
-              disabled={form.isLoading}
-              className="w-full py-3 rounded-full font-bold text-white text-sm cursor-pointer disabled:opacity-70 relative overflow-hidden"
-              style={{
-                background: "linear-gradient(90deg, #ff9a4a 0%, #e63e3e 100%)",
-                boxShadow: "0 4px 20px rgba(230,80,62,0.35)",
-                fontFamily: "Helvetica Neue, Helvetica, Arial, sans-serif",
-              }}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              whileHover={{ scale: 1.02, boxShadow: "0 8px 28px rgba(230,62,62,0.5)" }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <AnimatePresence mode="wait">
-                {form.isLoading ? (
-                  <motion.span
-                    key="loading"
-                    className="flex items-center justify-center gap-2"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <motion.span
-                      className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full"
-                      animate={{ rotate: 360 }}
-                      transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                    />
-                    Signing in…
-                  </motion.span>
-                ) : (
-                  <motion.span
-                    key="label"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    Submit
-                  </motion.span>
-                )}
-              </AnimatePresence>
-            </motion.button>
-
-            {/* Social Icons */}
-            <motion.div
-              className="flex items-center justify-center gap-5 pt-1"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.75 }}
-            >
-              {(["facebook", "instagram", "pinterest"] as SocialIcon[]).map((icon, i) => (
-                <motion.button
-                  key={icon}
-                  className="text-white/70 hover:text-white transition-colors cursor-pointer"
-                  whileHover={{ scale: 1.2, y: -2 }}
-                  whileTap={{ scale: 0.9 }}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.75 + i * 0.08 }}
-                >
-
-                </motion.button>
-              ))}
-            </motion.div>
+            <div className="text-neutral-400 mb-4">{svc.icon}</div>
+            <h3 className="text-[13px] font-bold text-neutral-900 mb-1.5">{svc.title}</h3>
+            <p className="text-[11.5px] text-neutral-400 leading-relaxed">{svc.description}</p>
           </motion.div>
-        </motion.div>
+        ))}
+      </motion.div>
+    </section>
+  );
+}
+
+function ContactSection() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, margin: "-60px" });
+
+  return (
+    <section
+      ref={ref}
+      className="bg-neutral-50 rounded-3xl mx-4 px-8 py-14 shadow-sm text-center border border-neutral-100"
+    >
+      {/* Handshake icon */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.7 }}
+        animate={inView ? { opacity: 1, scale: 1 } : {}}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="mx-auto mb-6 w-14 h-14 rounded-2xl bg-white shadow-md border border-neutral-100 flex items-center justify-center"
+      >
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#1a1a1a" strokeWidth="1.5">
+          <path d="M3 16l5-5 3 3 5-5 5 5" />
+          <path d="M6 19l3-3M22 9l-3 3" />
+          <circle cx="9" cy="19" r="1.5" fill="#1a1a1a" stroke="none" />
+        </svg>
+      </motion.div>
+
+      <motion.h2
+        variants={fadeUp}
+        custom={0}
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        className="text-[clamp(1.6rem,4vw,2.4rem)] font-bold leading-tight tracking-tight text-neutral-900"
+        style={{ fontFamily: "'Georgia', serif" }}
+      >
+        Tell me about{" "}
+        <span className="italic font-normal">your next</span>
+        <br />
+        project
+      </motion.h2>
+
+      <motion.div
+        variants={fadeUp}
+        custom={1}
+        initial="hidden"
+        animate={inView ? "show" : "hidden"}
+        className="mt-8 flex items-center justify-center gap-3"
+      >
+        <motion.a
+          href="mailto:kawsarvu.design@gmail.com"
+          whileHover={{ scale: 1.04 }}
+          whileTap={{ scale: 0.97 }}
+          className="inline-flex items-center gap-2 bg-neutral-900 text-white text-[12px] font-medium px-5 py-3 rounded-full shadow transition-colors duration-200"
+        >
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <rect x="1" y="3" width="11" height="8" rx="1.5" />
+            <path d="M1 4l5.5 4L12 4" />
+          </svg>
+          Email Me
+        </motion.a>
+        <motion.a
+          href="#"
+          whileHover={{ scale: 1.04, borderColor: "#1a1a1a", color: "#1a1a1a" }}
+          whileTap={{ scale: 0.97 }}
+          className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-600 text-[12px] font-medium px-5 py-3 rounded-full shadow-sm transition-all duration-200"
+        >
+          WhatsApp
+        </motion.a>
+      </motion.div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <motion.footer
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 0.6, duration: 0.6 }}
+      className="flex items-center justify-between px-8 py-5 text-[11px] text-neutral-400"
+    >
+      <span>© 2024 All rights reserved.</span>
+      <div className="flex items-center gap-1">
+        {NAV_LINKS.map((link, i) => (
+          <span key={link.label} className="flex items-center gap-1">
+            {i > 0 && <span className="text-neutral-200">/</span>}
+            <a href={link.href} className="hover:text-neutral-700 transition-colors duration-200">
+              {link.label}
+            </a>
+          </span>
+        ))}
       </div>
-    </div>
+    </motion.footer>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function PortfolioPage() {
+  const { scrollY } = useScroll();
+  const bgOpacity = useTransform(scrollY, [0, 200], [1, 0.96]);
+
+  return (
+    <motion.main
+      style={{ opacity: bgOpacity }}
+      className="min-h-screen bg-neutral-100 font-sans"
+    >
+      {/* Top card wrapper */}
+      <div className="max-w-3xl mx-auto py-6 space-y-4">
+        {/* Navbar */}
+        <div className="bg-white rounded-3xl mx-4 shadow-sm overflow-hidden">
+          <Navbar />
+        </div>
+
+        {/* Hero */}
+        <HeroSection />
+
+        {/* Brands */}
+        <BrandsSection />
+
+        {/* Services */}
+        <ServicesSection />
+
+        {/* Contact */}
+        <ContactSection />
+
+        {/* Footer */}
+        <Footer />
+      </div>
+    </motion.main>
   );
 }
